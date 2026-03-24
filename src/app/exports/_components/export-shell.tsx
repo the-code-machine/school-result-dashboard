@@ -6,7 +6,7 @@ import { useStudentsStore } from "@/store/students";
 import { assignRanks } from "@/lib/compute";
 import {
   exportDEOProforma,
-  exportVimarshFormat,
+  exportAnnualReportFormat,
   exportRMSAFormat,
 } from "@/lib/export-utils";
 import type { Student, StudentComputed } from "@/types";
@@ -56,13 +56,13 @@ export function ExportShell() {
     );
   }, [students, selectedSession]);
 
-  const handleExport = (type: "DEO" | "VIMARSH" | "RMSA") => {
+  const handleExport = (type: "DEO" | "ANNUAL" | "RMSA") => {
     if (!session || sessionStudents.length === 0) return;
 
     if (type === "DEO") {
       exportDEOProforma(sessionStudents, school, session);
-    } else if (type === "VIMARSH") {
-      exportVimarshFormat(sessionStudents, school, session, subjects);
+    } else if (type === "ANNUAL") {
+      exportAnnualReportFormat(sessionStudents, school, session, subjects);
     } else if (type === "RMSA") {
       exportRMSAFormat(sessionStudents, school, session);
     }
@@ -117,6 +117,8 @@ export function ExportShell() {
       {/* Export Options */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Vimarsh Portal */}
+        {/* Annual Report (Master Sheet) */}
+        {/* Printable Master Register */}
         <Card
           className={`transition-all ${isReady ? "hover:border-blue-300 hover:shadow-md" : "opacity-70"}`}
         >
@@ -124,20 +126,33 @@ export function ExportShell() {
             <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center mb-2">
               <FileSpreadsheet className="w-5 h-5 text-blue-600" />
             </div>
-            <CardTitle className="text-base">Vimarsh Portal</CardTitle>
+            <CardTitle className="text-base">Master Register (Print)</CardTitle>
             <CardDescription className="text-xs">
-              Main grading sheet containing detailed subject-wise marks, totals,
-              and final grades.
+              View and Print the massive 110+ column colored Class Register
+              (Save to PDF).
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
               className="w-full gap-2"
               disabled={!isReady}
-              onClick={() => handleExport("VIMARSH")}
+              onClick={() =>
+                router.push(`/print/class-register/${selectedSession}`)
+              }
             >
-              <Download className="w-4 h-4" /> Download CSV
+              <Printer className="w-4 h-4" /> Print Register
             </Button>
+
+            {/* Keeping the raw Excel download as a secondary text link just in case */}
+            <div className="mt-3 text-center">
+              <button
+                disabled={!isReady}
+                onClick={() => handleExport("ANNUAL")}
+                className="text-xs text-blue-600 hover:underline disabled:text-gray-400"
+              >
+                Download Raw Excel instead
+              </button>
+            </div>
           </CardContent>
         </Card>
 

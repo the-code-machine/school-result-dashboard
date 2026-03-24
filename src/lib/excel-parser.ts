@@ -14,42 +14,29 @@ import { useSettingsStore } from "@/store/settings";
 function parseExcelDate(serial: any) {
   if (!serial) return "";
 
-  // 1. Handle Excel numeric serial dates
   if (typeof serial === "number") {
-    // Excel's epoch starts at Jan 1, 1900 (with a leap year bug offset)
     const d = new Date((serial - 25569) * 86400000);
     return d.toISOString().split("T")[0];
   }
-
-  // 2. Handle native Date objects
   if (serial instanceof Date) {
     return serial.toISOString().split("T")[0];
   }
 
-  // 3. Handle string dates like "'16/04/2012" or "16-04-2012"
-  let strVal = String(serial).trim().replace(/^'/, ""); // Remove leading apostrophe if present
-
-  // Split by common delimiters
+  let strVal = String(serial).trim().replace(/^'/, "");
   const parts = strVal.split(/[-/]/);
   if (parts.length === 3) {
     let day = parts[0];
     let month = parts[1];
     let year = parts[2];
-
-    // If it came in as YYYY-MM-DD already
     if (parts[0].length === 4) {
       year = parts[0];
       month = parts[1];
       day = parts[2];
     }
-
-    // Return strict YYYY-MM-DD format
     if (year.length === 4) {
       return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
     }
   }
-
-  // Fallback to the raw string if format is completely unknown
   return strVal;
 }
 
@@ -78,7 +65,6 @@ export async function parseExcelToStudents(
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
 
-        // Find the specific "DATA" Sheet. If multiple exist, take the first one to avoid calculation sheets.
         const sheetName =
           workbook.SheetNames.find(
             (n) =>
@@ -86,12 +72,10 @@ export async function parseExcelToStudents(
           ) || workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
 
-        // Convert to 2D array
         const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
         const students: Student[] = [];
-        const seenRolls = new Set<string>(); // Prevent double-counting if the sheet has mirrored calculation tables below
+        const seenRolls = new Set<string>();
 
-        // Skip headers (usually first 4-6 rows in MPBSE sheets depending on the school's format)
         let startRow = 0;
         for (let i = 0; i < rows.length; i++) {
           const cellValue = String(rows[i]?.[1] || "").toLowerCase();
@@ -103,35 +87,36 @@ export async function parseExcelToStudents(
 
         for (let i = startRow; i < rows.length; i++) {
           const row = rows[i];
-          if (!row || row.length < 2) continue; // Skip completely empty rows
+          if (!row || row.length < 2) continue;
 
           const rollNumber = String(row[1] || "").trim();
 
-          // Stop parsing if we hit aggregate totals or empty roll numbers
           if (rollNumber === "" || rollNumber.toLowerCase().includes("total"))
             continue;
 
-          // FIX FOR DOUBLE COUNTING (54 instead of 27)
-          // If the sheet mirrors the data below for calculations, skip the duplicate roll numbers
           if (seenRolls.has(rollNumber)) continue;
           seenRolls.add(rollNumber);
 
           const marks: SubjectMarks[] = [];
           let slot = 1;
 
-          // Parse Subject Codes (Cols 14 to 19 -> Indexes 13 to 18)
-          for (let col = 13; col <= 18; col++) {
+          // EXACT COLUMN MAPPING BASED ON EXCEL RED NUMBERS
+          // Subject Codes are in red columns 15 to 20 -> JS Array indices 14 to 19
+          for (let col = 14; col <= 19; col++) {
             const subCode = parseInt(row[col]);
-            if (!isNaN(subCode)) {
-              // FIX FOR QUARTERLY AND HALF YEARLY MARKS
-              // Calculate exact column indices based on the blueprint offsets
-              const qThIdx = 19 + (slot - 1) * 2;
+
+            // Only process if it's a valid subject code
+            if (!isNaN(subCode) && subCode > 0) {
+              // Quarterly Marks: Red Columns 21-32 -> JS Array indices 20-31
+              const qThIdx = 20 + (slot - 1) * 2;
               const qPrIdx = qThIdx + 1;
 
-              const hyThIdx = 31 + (slot - 1) * 2;
+              // Half-Yearly Marks: Red Columns 33-44 -> JS Array indices 32-43
+              const hyThIdx = 32 + (slot - 1) * 2;
               const hyPrIdx = hyThIdx + 1;
 
-              const anThIdx = 43 + (slot - 1) * 2;
+              // Annual Marks: Red Columns 45-56 -> JS Array indices 44-55
+              const anThIdx = 44 + (slot - 1) * 2;
               const anPrIdx = anThIdx + 1;
 
               const qThData = parseMark(row[qThIdx]);
@@ -171,26 +156,27 @@ export async function parseExcelToStudents(
             id: crypto.randomUUID(),
             sessionId,
             rollNumber,
-            name: String(row[2] || "").trim(),
-            fatherName: String(row[3] || "").trim(),
-            motherName: String(row[4] || "").trim(),
-            category: String(row[5] || "GEN").toUpperCase() as Category,
-            gender: String(row[6] || "M")
+            name: String(row[2] || "").trim(), // Red Col 3
+            fatherName: String(row[3] || "").trim(), // Red Col 4
+            motherName: String(row[4] || "").trim(), // Red Col 5
+            // Note: row[5] is CWSN (Red Col 6), so Category is row[6]
+            category: String(row[6] || "GEN").toUpperCase() as Category, // Red Col 7
+            gender: String(row[7] || "M")
               .toUpperCase()
-              .charAt(0) as Gender,
-            dob: parseExcelDate(row[7]),
-            scholarNumber: String(row[8] || "").trim(),
-            sssmid: String(row[9] || "").trim(),
-            enrolmentNumber: String(row[10] || "").trim(),
-            medium: String(row[11] || "Hindi").trim(),
-            section: String(row[12] || "").trim(),
+              .charAt(0) as Gender, // Red Col 8
+            dob: parseExcelDate(row[8]), // Red Col 9
+            scholarNumber: String(row[9] || "").trim(), // Red Col 10
+            sssmid: String(row[10] || "").trim(), // Red Col 11
+            enrolmentNumber: String(row[11] || "").trim(), // Red Col 12
+            medium: String(row[12] || "Hindi").trim(), // Red Col 13
+            section: String(row[13] || "").trim(), // Red Col 14
             marks,
             isLocked: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
 
-          // Compute result immediately on import so Dashboards/Merit lists are accurate
+          // Compute result immediately on import
           if (marks.length > 0) {
             student.computed = computeStudent(student, subjectMap, classCfg);
           }

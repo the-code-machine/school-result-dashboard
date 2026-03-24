@@ -26,6 +26,7 @@ function themeVars(hex: string) {
   } as React.CSSProperties;
 }
 
+// Upgraded to handle thousands (for years like 2012)
 function numberToWords(num: number): string {
   const ones = [
     "",
@@ -71,7 +72,72 @@ function numberToWords(num: number): string {
       " Hundred" +
       (num % 100 ? " " + numberToWords(num % 100) : "")
     );
+  if (num < 1000000)
+    return (
+      numberToWords(Math.floor(num / 1000)) +
+      " Thousand" +
+      (num % 1000 ? " " + numberToWords(num % 1000) : "")
+    );
   return num.toString();
+}
+
+// Convert YYYY-MM-DD to words
+function dateToWords(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+
+  const ordinals = [
+    "",
+    "First",
+    "Second",
+    "Third",
+    "Fourth",
+    "Fifth",
+    "Sixth",
+    "Seventh",
+    "Eighth",
+    "Ninth",
+    "Tenth",
+    "Eleventh",
+    "Twelfth",
+    "Thirteenth",
+    "Fourteenth",
+    "Fifteenth",
+    "Sixteenth",
+    "Seventeenth",
+    "Eighteenth",
+    "Nineteenth",
+    "Twentieth",
+    "Twenty First",
+    "Twenty Second",
+    "Twenty Third",
+    "Twenty Fourth",
+    "Twenty Fifth",
+    "Twenty Sixth",
+    "Twenty Seventh",
+    "Twenty Eighth",
+    "Twenty Ninth",
+    "Thirtieth",
+    "Thirty First",
+  ];
+  const months = [
+    "",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  return `${ordinals[d.getDate()]} ${months[d.getMonth() + 1]} ${numberToWords(d.getFullYear())}`.toUpperCase();
 }
 
 const TB = "1.5px solid var(--theme)";
@@ -154,7 +220,7 @@ export default function BulkMarksheetPrintPage() {
       <div className="max-w-[210mm] mx-auto mb-4 flex justify-between items-center no-print bg-white p-3 rounded-xl shadow-sm border border-gray-200">
         <Button
           variant="outline"
-          onClick={() => router.push(`/sessions/${sessionId}`)}
+          onClick={() => router.back()}
           className="bg-white text-black"
         >
           <ArrowLeft className="w-4 h-4 mr-2" /> Back
@@ -218,7 +284,7 @@ export default function BulkMarksheetPrintPage() {
                 >
                   <div
                     className="shrink-0 flex items-center justify-center"
-                    style={{ width: 22, height: 22 }}
+                    style={{ width: 82, height: 82 }}
                   >
                     <img
                       src={school.logoUrl || "/logo.png"}
@@ -264,7 +330,6 @@ export default function BulkMarksheetPrintPage() {
                     </div>
                   </div>
 
-                  {/* Empty Photo Box */}
                   <div
                     className="shrink-0 flex items-center justify-center overflow-hidden"
                     style={{ width: "24mm", height: "32mm" }}
@@ -376,10 +441,11 @@ export default function BulkMarksheetPrintPage() {
                       "माता का नाम श्रीमती MOTHER'S NAME SMT. –",
                       student.motherName || "—",
                     ],
+                    // ✨ DOB WITH WORDS ✨
                     [
                       "जन्म तिथि DATE OF BIRTH –",
                       student.dob
-                        ? new Date(student.dob).toLocaleDateString("en-GB")
+                        ? `${new Date(student.dob).toLocaleDateString("en-GB")} (${dateToWords(student.dob)})`
                         : "—",
                     ],
                   ].map(([label, value]) => (
@@ -878,7 +944,7 @@ export default function BulkMarksheetPrintPage() {
                   <span>
                     कुल प्राप्तांक शब्दों में (TOTAL MARKS IN WORDS) –
                   </span>
-                  <span>{numberToWords(computed.grandTotal)}</span>
+                  <span>({numberToWords(computed.grandTotal)})</span>
                 </div>
 
                 <div
@@ -956,11 +1022,7 @@ export default function BulkMarksheetPrintPage() {
             {/* PAGE 2 – BACK */}
             <div
               className="a4-sheet w-full max-w-[210mm] mx-auto bg-white shadow-lg relative"
-              style={{
-                height: "297mm",
-                overflow: "hidden",
-                marginBottom: "2rem",
-              }}
+              style={{ height: "297mm", overflow: "hidden" }}
             >
               <div
                 className="absolute pointer-events-none"

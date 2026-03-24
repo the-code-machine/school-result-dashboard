@@ -40,10 +40,12 @@ body {
 }
 
 /* Print optimizations */
+/* Update your print section in globals.css */
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 10mm;
+    /* We use landscape for the massive register */
+    size: landscape;
+    margin: 5mm;
   }
   body {
     background: white !important;
@@ -55,8 +57,5 @@ body {
   }
   .page-break-before {
     page-break-before: always;
-  }
-  .print-border-black {
-    border-color: black !important;
   }
 }
