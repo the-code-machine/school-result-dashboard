@@ -1,4 +1,9 @@
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { useSettingsStore } from "@/store/settings";
+import { useStudentsStore } from "@/store/students";
 import {
   Users,
   BookOpen,
@@ -8,44 +13,12 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
+  UploadCloud,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-
-const STAT_CARDS = [
-  {
-    label: "Total Students",
-    value: "—",
-    icon: Users,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    href: "/students",
-  },
-  {
-    label: "Active Sessions",
-    value: "—",
-    icon: GraduationCap,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-    href: "/sessions",
-  },
-  {
-    label: "Marks Pending",
-    value: "—",
-    icon: BookOpen,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    href: "/marks",
-  },
-  {
-    label: "Pass %",
-    value: "—",
-    icon: TrendingUp,
-    color: "text-violet-600",
-    bg: "bg-violet-50",
-    href: "/results",
-  },
-];
+import { useUIStore } from "@/store/ui";
+import { Button } from "@/components/ui/button";
 
 const QUICK_LINKS = [
   {
@@ -53,54 +26,145 @@ const QUICK_LINKS = [
     description: "Add school name, DISE code, principal",
     href: "/settings?tab=school",
     icon: GraduationCap,
-    status: "action",
   },
   {
     title: "Configure Classes",
     description: "Set marking scheme for Class 9, 11 etc.",
     href: "/settings?tab=classes",
     icon: BookOpen,
-    status: "action",
   },
   {
     title: "Manage Subjects",
     description: "Add or edit subject codes and pass marks",
     href: "/settings?tab=subjects",
     icon: CheckCircle,
-    status: "action",
   },
   {
     title: "Create Session",
     description: "Start a new exam session for a class",
     href: "/sessions",
     icon: Clock,
-    status: "action",
   },
 ];
 
 export default function DashboardPage() {
+  const [mounted, setMounted] = useState(false);
+  const { school, sessions } = useSettingsStore();
+  const { students } = useStudentsStore();
+  const { setImportModalOpen } = useUIStore();
+  // Prevent Next.js hydration errors by only rendering data after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Calculate live statistics
+  const stats = useMemo(() => {
+    const totalStudents = students.length;
+    const activeSessions = sessions.filter((s) => !s.isLocked).length;
+
+    // Students whose marks aren't fully entered/computed yet
+    const marksPending = students.filter(
+      (s) => !s.computed || s.computed.result === "PENDING",
+    ).length;
+
+    // Calculate global pass percentage
+    const computedStudents = students.filter(
+      (s) =>
+        s.computed &&
+        s.computed.result !== "ABSENT" &&
+        s.computed.result !== "PENDING",
+    );
+    const passedStudents = computedStudents.filter(
+      (s) => s.computed?.result === "PASS",
+    ).length;
+    const passPercentage =
+      computedStudents.length > 0
+        ? Math.round((passedStudents / computedStudents.length) * 100)
+        : 0;
+
+    return {
+      totalStudents,
+      activeSessions,
+      marksPending,
+      passPercentage,
+    };
+  }, [students, sessions]);
+
+  // Show a loading state while grabbing local storage data
+  if (!mounted) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center h-full">
+          <p className="text-gray-500">Loading dashboard data...</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const STAT_CARDS = [
+    {
+      label: "Total Students",
+      value: stats.totalStudents.toString(),
+      icon: Users,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      href: "/students",
+    },
+    {
+      label: "Active Sessions",
+      value: stats.activeSessions.toString(),
+      icon: GraduationCap,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      href: "/sessions",
+    },
+    {
+      label: "Marks Pending",
+      value: stats.marksPending.toString(),
+      icon: BookOpen,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      href: "/marks",
+    },
+    {
+      label: "Global Pass %",
+      value: `${stats.passPercentage}%`,
+      icon: TrendingUp,
+      color: "text-violet-600",
+      bg: "bg-violet-50",
+      href: "/results",
+    },
+  ];
+
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Welcome banner */}
+        {/* Dynamic Welcome Banner */}
         <div className="rounded-xl bg-gradient-to-r from-blue-700 to-blue-600 p-5 text-white">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold">
-                Nehru Memorial Higher Secondary School
+                {school.name || "School Name Not Set"}
               </h2>
-              <p className="text-blue-100 text-sm mt-0.5">
-                DISE: 23310300104 · Kurwai, Vidisha (MP) · MPBSE: 622055
+              <p className="text-blue-100 text-sm mt-0.5 flex flex-wrap gap-2">
+                <span>DISE: {school.diseCode || "—"}</span>
+                <span>·</span>
+                <span>
+                  {school.block || "City"}, {school.district || "District"} (
+                  {school.state || "State"})
+                </span>
+                <span>·</span>
+                <span>MPBSE: {school.mpbseCode || "—"}</span>
               </p>
               <p className="text-blue-200 text-xs mt-2">
-                Result Management System · Session 2024-25
+                Local-First Result Management System
               </p>
             </div>
             <GraduationCap className="w-10 h-10 text-blue-300 shrink-0 hidden sm:block" />
           </div>
         </div>
 
-        {/* Stat cards */}
+        {/* Live Stat Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {STAT_CARDS.map((card) => (
             <Link key={card.label} href={card.href}>
@@ -128,14 +192,29 @@ export default function DashboardPage() {
         {/* Quick start */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">Quick Setup</h3>
-            <Link
-              href="/settings"
-              className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-            >
-              All settings <ArrowRight className="w-3 h-3" />
-            </Link>
+            <h3 className="text-sm font-semibold text-gray-700">
+              Quick Setup & Actions
+            </h3>
+            <div className="flex items-center gap-3">
+              {/* NEW IMPORT BUTTON */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setImportModalOpen(true)}
+                className="text-blue-700 border-blue-200 bg-blue-50 hover:bg-blue-100"
+              >
+                <UploadCloud className="w-4 h-4 mr-2" />
+                Import Excel
+              </Button>
+              <Link
+                href="/settings"
+                className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+              >
+                All settings <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {QUICK_LINKS.map((item) => (
               <Link key={item.title} href={item.href}>
@@ -163,24 +242,26 @@ export default function DashboardPage() {
         </div>
 
         {/* Info notice */}
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-4 flex gap-3 items-start">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-amber-800">
-                Getting Started
-              </p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Start by going to{" "}
-                <Link href="/settings" className="underline font-medium">
-                  Settings
-                </Link>{" "}
-                to configure your school info, class marking schemes, and
-                subject master before creating sessions or entering marks.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {(!school.name || sessions.length === 0) && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-4 flex gap-3 items-start">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">
+                  Getting Started
+                </p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Start by going to{" "}
+                  <Link href="/settings" className="underline font-medium">
+                    Settings
+                  </Link>{" "}
+                  to configure your school info, class marking schemes, and
+                  subject master before creating sessions or entering marks.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppShell>
   );

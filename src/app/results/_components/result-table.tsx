@@ -24,8 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Printer } from "lucide-react";
 
+import Link from "next/link";
 type SortField = "roll" | "name" | "total" | "pct" | "rank";
 type SortDir = "asc" | "desc";
 
@@ -361,8 +362,8 @@ export function ResultTable({ students, subjects, classCfg }: Props) {
                     )}
                   </td>
 
-                  {/* Result */}
-                  <td className="px-3 py-2 text-center whitespace-nowrap">
+                  {/* Result & Actions */}
+                  <td className="px-3 py-2 text-center whitespace-nowrap flex items-center justify-center gap-3">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
                         RESULT_STYLE[c.result] ?? RESULT_STYLE.PENDING
@@ -370,6 +371,21 @@ export function ResultTable({ students, subjects, classCfg }: Props) {
                     >
                       {RESULT_LABEL[c.result] ?? c.result}
                     </span>
+
+                    {/* NEW PRINT ACTION */}
+                    <Link
+                      href={`/print/marksheet/${student.id}`}
+                      target="_blank"
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-gray-400 hover:text-blue-600"
+                        title="Print Marksheet"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </Button>
+                    </Link>
                   </td>
                 </tr>
               );

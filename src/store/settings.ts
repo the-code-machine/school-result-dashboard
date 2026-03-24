@@ -25,6 +25,8 @@ interface SettingsStore {
   // Add to interface
   deleteSession: (id: string) => void;
 
+  deleteBySession: (sessionId: string) => void; // <--- NEW
+
   // Add to implementation (inside the persist block)
 }
 
@@ -39,6 +41,7 @@ const DEFAULT_SCHOOL: SchoolConfig = {
   block: "Kurwai",
   district: "Vidisha",
   state: "Madhya Pradesh",
+  logoUrl: "/logo.png",
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -102,6 +105,11 @@ export const useSettingsStore = create<SettingsStore>()(
       deleteSession: (id) =>
         set((state) => ({
           sessions: state.sessions.filter((s) => s.id !== id),
+        })),
+
+      deleteBySession: (sessionId) =>
+        set((state) => ({
+          students: state.students.filter((s) => s.sessionId !== sessionId),
         })),
     }),
     { name: "school-result-settings" },

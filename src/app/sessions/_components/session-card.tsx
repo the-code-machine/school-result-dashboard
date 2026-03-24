@@ -33,7 +33,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
-
+import { useStudentsStore } from "@/store/students"; // <--- ADD THIS IMPORT
 const CLASS_COLORS: Record<string, string> = {
   "9": "border-l-blue-500",
   "10": "border-l-violet-500",
@@ -61,8 +61,13 @@ interface Props {
 }
 
 export function SessionCard({ session }: Props) {
-  const { lockSession, updateSession, classConfigs, deleteSession } =
-    useSettingsStore();
+  const {
+    lockSession,
+    updateSession,
+    classConfigs,
+    deleteSession,
+    deleteBySession,
+  } = useSettingsStore();
 
   const [expanded, setExpanded] = useState(false);
 
@@ -91,6 +96,7 @@ export function SessionCard({ session }: Props) {
 
   const handleDelete = () => {
     deleteSession(session.id);
+    deleteBySession(session.id); // <--- DELETE STUDENTS LINKED TO THIS SESSION
     toast({
       title: "Deleted",
       description: `Class ${session.classId} · ${session.year} session removed.`,

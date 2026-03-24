@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,8 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Save, School } from "lucide-react";
+import { Save, School, Image as ImageIcon, X } from "lucide-react";
 
 const schema = z.object({
   name: z.string().min(3, "School name is required"),
@@ -32,6 +31,7 @@ const schema = z.object({
   state: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
+  logoUrl: z.string().optional().or(z.literal("")),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -39,20 +39,61 @@ type FormValues = z.infer<typeof schema>;
 export function SchoolForm() {
   const { school, setSchool } = useSettingsStore();
 
+  // FIX 1: Use absolute path "/logo.png"
+  const [logoPreview, setLogoPreview] = useState<string>(
+    school.logoUrl || "/logo.png",
+  );
+
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: school,
   });
 
-  // sync store → form when store changes
   useEffect(() => {
     reset(school);
+    // FIX 2: Ensure the useEffect also falls back to "/logo.png" instead of ""
+    setLogoPreview(school.logoUrl || "/logo.png");
   }, [school, reset]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 500 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "File too large",
+          description: "Logo must be under 500KB. Please resize your image.",
+        });
+        e.target.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setLogoPreview(base64String);
+        setValue("logoUrl", base64String, { shouldDirty: true });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    // FIX 3: Revert to default logo when removed
+    setLogoPreview("/logo.png");
+    setValue("logoUrl", "", { shouldDirty: true });
+
+    const fileInput = document.getElementById(
+      "logo-upload",
+    ) as HTMLInputElement;
+    if (fileInput) fileInput.value = "";
+  };
 
   const onSubmit = (data: FormValues) => {
     setSchool(data);
@@ -65,7 +106,7 @@ export function SchoolForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* Identity */}
+      {/* ... [Identity Card goes here, same as before] ... */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -87,7 +128,6 @@ export function SchoolForm() {
                 <p className="text-xs text-red-600">{errors.name.message}</p>
               )}
             </div>
-
             <div className="sm:col-span-2 space-y-1.5">
               <Label htmlFor="nameHindi">School Name (Hindi)</Label>
               <Input
@@ -96,7 +136,6 @@ export function SchoolForm() {
                 {...register("nameHindi")}
               />
             </div>
-
             <div className="space-y-1.5">
               <Label htmlFor="diseCode">DISE Code *</Label>
               <Input
@@ -111,7 +150,6 @@ export function SchoolForm() {
                 </p>
               )}
             </div>
-
             <div className="space-y-1.5">
               <Label htmlFor="mpbseCode">MPBSE Code *</Label>
               <Input
@@ -125,7 +163,6 @@ export function SchoolForm() {
                 </p>
               )}
             </div>
-
             <div className="sm:col-span-2 space-y-1.5">
               <Label htmlFor="principal">Principal Name</Label>
               <Input
@@ -138,7 +175,61 @@ export function SchoolForm() {
         </CardContent>
       </Card>
 
-      {/* Address */}
+      {/* Media Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>School Logo</CardTitle>
+          <CardDescription>
+            Upload a logo for the Marksheet printout
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Label>Logo Image</Label>
+            <div className="flex items-center gap-4">
+              {/* Preview Area */}
+              {logoPreview ? (
+                <div className="relative w-16 h-16 rounded-lg border border-gray-200 overflow-hidden shrink-0 bg-white shadow-sm group">
+                  <img
+                    src={logoPreview}
+                    alt="School Logo"
+                    className="w-full h-full object-contain p-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveLogo}
+                    className="absolute top-0.5 right-0.5 bg-white/80 rounded-full p-0.5 text-gray-600 hover:text-red-600 hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove logo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 shrink-0 text-gray-400">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+              )}
+
+              {/* Upload Input */}
+              <div className="flex-1">
+                <Input
+                  id="logo-upload"
+                  type="file"
+                  accept="image/png, image/jpeg, image/jpg"
+                  onChange={handleFileChange}
+                  className="cursor-pointer h-9 text-xs"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Supported: JPG, PNG. Maximum size: 500KB.
+                </p>
+              </div>
+            </div>
+            <input type="hidden" {...register("logoUrl")} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ... [Address & Contact Cards go here, same as before] ... */}
       <Card>
         <CardHeader>
           <CardTitle>Address</CardTitle>
@@ -154,12 +245,10 @@ export function SchoolForm() {
                 {...register("address")}
               />
             </div>
-
             <div className="space-y-1.5">
               <Label htmlFor="block">Block</Label>
               <Input id="block" placeholder="Kurwai" {...register("block")} />
             </div>
-
             <div className="space-y-1.5">
               <Label htmlFor="district">District</Label>
               <Input
@@ -168,7 +257,6 @@ export function SchoolForm() {
                 {...register("district")}
               />
             </div>
-
             <div className="space-y-1.5">
               <Label htmlFor="state">State</Label>
               <Input
@@ -181,7 +269,6 @@ export function SchoolForm() {
         </CardContent>
       </Card>
 
-      {/* Contact */}
       <Card>
         <CardHeader>
           <CardTitle>Contact</CardTitle>
@@ -212,7 +299,6 @@ export function SchoolForm() {
         </CardContent>
       </Card>
 
-      {/* Save */}
       <div className="flex justify-end">
         <Button type="submit" disabled={!isDirty} className="gap-2">
           <Save className="w-4 h-4" />

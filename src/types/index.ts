@@ -70,6 +70,7 @@ export interface SchoolConfig {
   state: string;
   phone?: string;
   email?: string;
+  logoUrl?: string;
 }
 
 export type Gender = "M" | "F" | "O";
